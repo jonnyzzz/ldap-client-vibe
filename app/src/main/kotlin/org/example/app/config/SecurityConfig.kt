@@ -43,6 +43,19 @@ open class SecurityConfig(
     @Value("\${spring.ldap.use-ssl:false}")
     private val ldapUseSsl: Boolean = false
 
+    // LDAP authentication properties
+    @Value("\${spring.security.ldap.user-dn-patterns:uid={0},ou=people,dc=example,dc=org}")
+    private val ldapUserDnPatterns: String = "uid={0},ou=people,dc=example,dc=org"
+
+    @Value("\${spring.security.ldap.group-search-base:ou=groups}")
+    private val ldapGroupSearchBase: String = "ou=groups"
+
+    @Value("\${spring.security.ldap.group-search-filter:(member={0})}")
+    private val ldapGroupSearchFilter: String = "(member={0})"
+
+    @Value("\${spring.security.ldap.password-attribute:userPassword}")
+    private val ldapPasswordAttribute: String = "userPassword"
+
     // Pattern for validating usernames to prevent LDAP injection
     private val usernamePattern = Pattern.compile("^[a-zA-Z0-9._-]{3,50}$")
 
@@ -117,17 +130,17 @@ open class SecurityConfig(
      */
     @Autowired
     open fun configure(auth: AuthenticationManagerBuilder) {
-        // Configure LDAP authentication using the URL from properties
+        // Configure LDAP authentication using properties
         auth
             .ldapAuthentication()
-            .userDnPatterns("uid={0},ou=people,dc=example,dc=org")
-            .groupSearchBase("ou=groups")
-            .groupSearchFilter("(member={0})")
+            .userDnPatterns(ldapUserDnPatterns)
+            .groupSearchBase(ldapGroupSearchBase)
+            .groupSearchFilter(ldapGroupSearchFilter)
             .contextSource()
             .url(ldapUrls)
             .and()
             .passwordCompare()
-            .passwordAttribute("userPassword")
+            .passwordAttribute(ldapPasswordAttribute)
     }
 
     /**
