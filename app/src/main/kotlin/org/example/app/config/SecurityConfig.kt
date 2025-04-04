@@ -72,11 +72,11 @@ open class SecurityConfig(
     }
 
     /**
-     * Creates a custom authentication filter for handling encoded passwords.
+     * Creates a custom authentication filter for handling encrypted passwords.
      */
     @Bean
-    open fun encodedPasswordAuthenticationFilter(authenticationManager: AuthenticationManager): EncodedPasswordAuthenticationFilter {
-        val filter = EncodedPasswordAuthenticationFilter(authenticationManager)
+    open fun encodedPasswordAuthenticationFilter(authenticationManager: AuthenticationManager, cryptoUtils: CryptoUtils): EncodedPasswordAuthenticationFilter {
+        val filter = EncodedPasswordAuthenticationFilter(authenticationManager, cryptoUtils)
         filter.setAuthenticationSuccessHandler { _, response, _ -> response.sendRedirect("/success") }
         filter.setAuthenticationFailureHandler { _, response, _ -> response.sendRedirect("/login?error=true") }
         return filter
@@ -91,7 +91,7 @@ open class SecurityConfig(
         return http
             .authorizeHttpRequests { authorize ->
                 authorize
-                    .requestMatchers("/login", "/error", "/assets/**", "/css/**", "/js/**").permitAll()
+                    .requestMatchers("/login", "/error", "/assets/**", "/css/**", "/js/**", "/api/crypto/public-key").permitAll()
                     .anyRequest().authenticated()
             }
             .formLogin { form ->

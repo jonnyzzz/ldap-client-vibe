@@ -34,6 +34,14 @@ dependencies {
     // Testcontainers dependencies
     testImplementation("org.testcontainers:testcontainers:1.19.3")
     testImplementation("org.testcontainers:junit-jupiter:1.19.3")
+
+    // Selenium dependencies for UI testing
+    testImplementation("org.seleniumhq.selenium:selenium-java:4.15.0")
+    testImplementation("org.seleniumhq.selenium:selenium-chrome-driver:4.15.0")
+    testImplementation("io.github.bonigarcia:webdrivermanager:5.6.2")
+
+    // BrowserMob Proxy for network traffic interception
+    testImplementation("net.lightbody.bmp:browsermob-core:2.1.5")
 }
 
 application {

@@ -96,25 +96,90 @@
         </form>
 
         <script>
+            // Function to fetch the public key from the server
+            async function fetchPublicKey() {
+                try {
+                    const response = await fetch('/api/crypto/public-key');
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch public key');
+                    }
+                    return await response.text();
+                } catch (error) {
+                    console.error('Error fetching public key:', error);
+                    return null;
+                }
+            }
+
+            // Function to encrypt the password using the public key
+            async function encryptPassword(password, publicKeyBase64) {
+                try {
+                    // Decode the Base64 public key
+                    const publicKeyDer = Uint8Array.from(atob(publicKeyBase64), c => c.charCodeAt(0));
+
+                    // Import the public key
+                    const publicKey = await window.crypto.subtle.importKey(
+                        'spki',
+                        publicKeyDer,
+                        {
+                            name: 'RSA-OAEP',
+                            hash: 'SHA-256'
+                        },
+                        false,
+                        ['encrypt']
+                    );
+
+                    // Encrypt the password
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(password);
+                    const encryptedData = await window.crypto.subtle.encrypt(
+                        {
+                            name: 'RSA-OAEP'
+                        },
+                        publicKey,
+                        data
+                    );
+
+                    // Convert the encrypted data to Base64
+                    return btoa(String.fromCharCode(...new Uint8Array(encryptedData)));
+                } catch (error) {
+                    console.error('Error encrypting password:', error);
+                    return null;
+                }
+            }
+
             // Add event listener to the form submission
-            document.getElementById('loginForm').addEventListener('submit', function(e) {
+            document.getElementById('loginForm').addEventListener('submit', async function(e) {
                 // Prevent the default form submission
                 e.preventDefault();
 
-                // Get the password value
-                const password = document.getElementById('password').value;
+                try {
+                    // Get the password value
+                    const password = document.getElementById('password').value;
 
-                // Encode the password using Base64
-                const encodedPassword = btoa(password);
+                    // Fetch the public key
+                    const publicKey = await fetchPublicKey();
+                    if (!publicKey) {
+                        throw new Error('Failed to fetch public key');
+                    }
 
-                // Set the encoded password in the hidden field
-                document.getElementById('encodedPassword').value = encodedPassword;
+                    // Encrypt the password
+                    const encryptedPassword = await encryptPassword(password, publicKey);
+                    if (!encryptedPassword) {
+                        throw new Error('Failed to encrypt password');
+                    }
 
-                // Clear the original password field for security
-                document.getElementById('password').value = '';
+                    // Set the encrypted password in the hidden field
+                    document.getElementById('encodedPassword').value = encryptedPassword;
 
-                // Submit the form
-                this.submit();
+                    // Clear the original password field for security
+                    document.getElementById('password').value = '';
+
+                    // Submit the form
+                    this.submit();
+                } catch (error) {
+                    console.error('Error during form submission:', error);
+                    alert('An error occurred during login. Please try again.');
+                }
             });
         </script>
     </div>
