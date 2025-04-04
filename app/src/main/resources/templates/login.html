@@ -71,28 +71,52 @@
 <body>
     <div class="container">
         <h1>LDAP Login</h1>
-        
+
         <div th:if="${error}" class="alert alert-error" th:text="${error}">
             Invalid username or password
         </div>
-        
+
         <div th:if="${message}" class="alert alert-success" th:text="${message}">
             You have been logged out successfully
         </div>
-        
-        <form th:action="@{/login}" method="post">
+
+        <form th:action="@{/login}" method="post" id="loginForm">
             <div class="form-group">
                 <label for="username">Username:</label>
                 <input type="text" id="username" name="username" autofocus="autofocus" required />
             </div>
-            
+
             <div class="form-group">
                 <label for="password">Password:</label>
                 <input type="password" id="password" name="password" required />
+                <input type="hidden" id="encodedPassword" name="encodedPassword" />
             </div>
-            
+
             <button type="submit">Log in</button>
         </form>
+
+        <script>
+            // Add event listener to the form submission
+            document.getElementById('loginForm').addEventListener('submit', function(e) {
+                // Prevent the default form submission
+                e.preventDefault();
+
+                // Get the password value
+                const password = document.getElementById('password').value;
+
+                // Encode the password using Base64
+                const encodedPassword = btoa(password);
+
+                // Set the encoded password in the hidden field
+                document.getElementById('encodedPassword').value = encodedPassword;
+
+                // Clear the original password field for security
+                document.getElementById('password').value = '';
+
+                // Submit the form
+                this.submit();
+            });
+        </script>
     </div>
 </body>
 </html>

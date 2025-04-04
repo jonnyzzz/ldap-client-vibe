@@ -6,7 +6,9 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.authentication.LockedException
+import org.springframework.security.authentication.AuthenticationManager
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
@@ -15,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.AuthenticationFailureHandler
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import java.util.regex.Pattern
 
 /**
@@ -60,11 +63,31 @@ open class SecurityConfig(
     private val usernamePattern = Pattern.compile("^[a-zA-Z0-9._-]{3,50}$")
 
     /**
+     * Provides the AuthenticationManager bean.
+     * This is needed for our custom authentication filter.
+     */
+    @Bean
+    open fun authenticationManager(authenticationConfiguration: AuthenticationConfiguration): AuthenticationManager {
+        return authenticationConfiguration.getAuthenticationManager()
+    }
+
+    /**
+     * Creates a custom authentication filter for handling encoded passwords.
+     */
+    @Bean
+    open fun encodedPasswordAuthenticationFilter(authenticationManager: AuthenticationManager): EncodedPasswordAuthenticationFilter {
+        val filter = EncodedPasswordAuthenticationFilter(authenticationManager)
+        filter.setAuthenticationSuccessHandler { _, response, _ -> response.sendRedirect("/success") }
+        filter.setAuthenticationFailureHandler { _, response, _ -> response.sendRedirect("/login?error=true") }
+        return filter
+    }
+
+    /**
      * Configures the security filter chain.
      * This method sets up the security rules for the application.
      */
     @Bean
-    open fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
+    open fun securityFilterChain(http: HttpSecurity, encodedPasswordAuthenticationFilter: EncodedPasswordAuthenticationFilter): SecurityFilterChain {
         return http
             .authorizeHttpRequests { authorize ->
                 authorize
@@ -79,6 +102,8 @@ open class SecurityConfig(
                     .failureHandler(authenticationFailureHandler())
                     .permitAll()
             }
+            // Add our custom filter before the default UsernamePasswordAuthenticationFilter
+            .addFilterBefore(encodedPasswordAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
             .logout { logout ->
                 logout
                     .logoutSuccessUrl("/login?logout=true")
@@ -131,11 +156,11 @@ open class SecurityConfig(
     @Autowired
     open fun configure(auth: AuthenticationManagerBuilder) {
         // Configure LDAP authentication using properties
+        // Disable group search completely to avoid issues with missing group search base
         auth
             .ldapAuthentication()
             .userDnPatterns(ldapUserDnPatterns)
-            .groupSearchBase(ldapGroupSearchBase)
-            .groupSearchFilter(ldapGroupSearchFilter)
+            // Skip group search configuration
             .contextSource()
             .url(ldapUrls)
             .and()
