@@ -31,6 +31,9 @@ open class SecurityConfig(
     private val ldapBaseDn: String
 ) {
     // Additional security properties with default values
+    @Value("\${spring.ldap.urls:ldap://localhost:8389}")
+    private val ldapUrls: String = "ldap://localhost:8389"
+
     @Value("\${spring.ldap.username:}")
     private val ldapUsername: String = ""
 
@@ -114,18 +117,14 @@ open class SecurityConfig(
      */
     @Autowired
     open fun configure(auth: AuthenticationManagerBuilder) {
-        // Determine the protocol based on SSL setting
-        val protocol = if (ldapUseSsl) "ldaps" else "ldap"
-        val url = "$protocol://localhost:$ldapPort/$ldapBaseDn"
-
-        // Configure LDAP authentication
+        // Configure LDAP authentication using the URL from properties
         auth
             .ldapAuthentication()
-            .userDnPatterns("uid={0},ou=people")
+            .userDnPatterns("uid={0},ou=people,dc=example,dc=org")
             .groupSearchBase("ou=groups")
-            .groupSearchFilter("(uniqueMember={0})")
+            .groupSearchFilter("(member={0})")
             .contextSource()
-            .url(url)
+            .url(ldapUrls)
             .and()
             .passwordCompare()
             .passwordAttribute("userPassword")
