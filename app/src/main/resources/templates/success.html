@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="https://www.thymeleaf.org">
+<head>
+    <title>Login Success</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .info-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        .info-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .authorities-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .authorities-list li {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .authorities-list li:last-child {
+            border-bottom: none;
+        }
+        .logout-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            text-align: center;
+            text-decoration: none;
+        }
+        .logout-btn:hover {
+            background-color: #d32f2f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Login Successful</h1>
+        
+        <div class="info-section">
+            <div class="info-title">Welcome:</div>
+            <div th:text="${username}">username</div>
+        </div>
+        
+        <div class="info-section">
+            <div class="info-title">Your Authorities:</div>
+            <ul class="authorities-list">
+                <li th:each="authority : ${authorities}" th:text="${authority}">ROLE_USER</li>
+            </ul>
+        </div>
+        
+        <form th:action="@{/logout}" method="post">
+            <button type="submit" class="logout-btn">Logout</button>
+        </form>
+    </div>
+</body>
+</html>

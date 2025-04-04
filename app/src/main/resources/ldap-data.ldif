@@ -1,0 +1,61 @@
+# Base organization
+dn: dc=example,dc=org
+objectClass: top
+objectClass: domain
+dc: example
+
+# Organizational units
+dn: ou=people,dc=example,dc=org
+objectClass: top
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=example,dc=org
+objectClass: top
+objectClass: organizationalUnit
+ou: groups
+
+# Users
+dn: uid=user1,ou=people,dc=example,dc=org
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+cn: User One
+sn: One
+uid: user1
+userPassword: password1
+
+dn: uid=user2,ou=people,dc=example,dc=org
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+cn: User Two
+sn: Two
+uid: user2
+userPassword: password2
+
+dn: uid=admin,ou=people,dc=example,dc=org
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+cn: Admin User
+sn: Admin
+uid: admin
+userPassword: admin
+
+# Groups
+dn: cn=users,ou=groups,dc=example,dc=org
+objectClass: top
+objectClass: groupOfUniqueNames
+cn: users
+uniqueMember: uid=user1,ou=people,dc=example,dc=org
+uniqueMember: uid=user2,ou=people,dc=example,dc=org
+
+dn: cn=admins,ou=groups,dc=example,dc=org
+objectClass: top
+objectClass: groupOfUniqueNames
+cn: admins
+uniqueMember: uid=admin,ou=people,dc=example,dc=org
