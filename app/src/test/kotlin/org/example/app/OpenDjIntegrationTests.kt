@@ -39,7 +39,7 @@ class OpenDjIntegrationTests {
             .withExposedPorts(1389)
             .withEnv("BASE_DN", "dc=example,dc=org")
             .withEnv("ROOT_USER_DN", "cn=Directory Manager")
-            .withEnv("ROOT_PASSWORD", "admin")
+            .withEnv("ROOT_PASSWORD", "admin_password")
             .waitingFor(Wait.forLogMessage(".*OpenDJ is started.*", 1))
             .withStartupTimeout(Duration.ofSeconds(120))
 
@@ -52,7 +52,7 @@ class OpenDjIntegrationTests {
             registry.add("spring.ldap.urls") { "ldap://${openDjContainer.host}:${openDjContainer.getMappedPort(1389)}" }
             registry.add("spring.ldap.base") { "dc=example,dc=org" }
             registry.add("spring.ldap.username") { "cn=Directory Manager" }
-            registry.add("spring.ldap.password") { "admin" }
+            registry.add("spring.ldap.password") { "admin_password" }
             
             // Disable embedded LDAP server
             registry.add("spring.ldap.embedded.port") { "0" }
@@ -62,7 +62,7 @@ class OpenDjIntegrationTests {
             registry.add("spring.security.ldap.user-search-base") { "ou=people" }
             registry.add("spring.security.ldap.user-search-filter") { "(uid={0})" }
             registry.add("spring.security.ldap.group-search-base") { "ou=groups" }
-            registry.add("spring.security.ldap.group-search-filter") { "(uniqueMember={0})" }
+            registry.add("spring.security.ldap.group-search-filter") { "(member={0})" }
         }
     }
 
@@ -127,7 +127,7 @@ class OpenDjIntegrationTests {
         mockMvc.perform(
             formLogin("/login")
                 .user("admin")
-                .password("admin")
+                .password("admin_password")
         )
             .andExpect(authenticated())
             .andExpect(redirectedUrl("/success"))
@@ -158,6 +158,62 @@ class OpenDjIntegrationTests {
             formLogin("/login")
                 .user("expired")
                 .password("password")
+        )
+            .andExpect(unauthenticated())
+            .andExpect(redirectedUrl("/login?error=true"))
+    }
+
+    /**
+     * Test authentication with special characters in credentials.
+     */
+    @Test
+    fun loginWithSpecialCharactersInCredentials() {
+        mockMvc.perform(
+            formLogin("/login")
+                .user("user.special")
+                .password("p@ssw0rd!#$%")
+        )
+            .andExpect(authenticated())
+            .andExpect(redirectedUrl("/success"))
+    }
+
+    /**
+     * Test authentication with long credentials.
+     */
+    @Test
+    fun loginWithLongCredentials() {
+        mockMvc.perform(
+            formLogin("/login")
+                .user("user.long")
+                .password("a".repeat(100))
+        )
+            .andExpect(authenticated())
+            .andExpect(redirectedUrl("/success"))
+    }
+
+    /**
+     * Test authentication with SQL injection attempt.
+     */
+    @Test
+    fun loginWithSqlInjectionAttempt() {
+        mockMvc.perform(
+            formLogin("/login")
+                .user("user' OR '1'='1")
+                .password("password' OR '1'='1")
+        )
+            .andExpect(unauthenticated())
+            .andExpect(redirectedUrl("/login?error=true"))
+    }
+
+    /**
+     * Test authentication with empty credentials.
+     */
+    @Test
+    fun loginWithEmptyCredentialsFails() {
+        mockMvc.perform(
+            formLogin("/login")
+                .user("")
+                .password("")
         )
             .andExpect(unauthenticated())
             .andExpect(redirectedUrl("/login?error=true"))

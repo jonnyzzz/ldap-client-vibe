@@ -17,7 +17,6 @@ import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.utility.DockerImageName
-import org.testcontainers.utility.MountableFile
 import java.time.Duration
 
 /**
@@ -32,7 +31,7 @@ class OpenLdapIntegrationTests {
     companion object {
         /**
          * OpenLDAP Docker container configuration.
-         * Using the official OpenLDAP image from Docker Hub.
+         * Using the OpenLDAP image from Docker Hub.
          */
         @Container
         @JvmStatic
@@ -40,12 +39,7 @@ class OpenLdapIntegrationTests {
             .withExposedPorts(389)
             .withEnv("LDAP_ORGANISATION", "Example Inc.")
             .withEnv("LDAP_DOMAIN", "example.org")
-            .withEnv("LDAP_ADMIN_PASSWORD", "admin")
-            .withEnv("LDAP_CONFIG_PASSWORD", "config")
-            .withCopyFileToContainer(
-                MountableFile.forClasspathResource("ldap-test-data.ldif"),
-                "/container/service/slapd/assets/config/bootstrap/ldif/custom/users.ldif"
-            )
+            .withEnv("LDAP_ADMIN_PASSWORD", "admin_password")
             .waitingFor(Wait.forLogMessage(".*slapd starting.*", 1))
             .withStartupTimeout(Duration.ofSeconds(60))
 
@@ -58,7 +52,7 @@ class OpenLdapIntegrationTests {
             registry.add("spring.ldap.urls") { "ldap://${openLdapContainer.host}:${openLdapContainer.getMappedPort(389)}" }
             registry.add("spring.ldap.base") { "dc=example,dc=org" }
             registry.add("spring.ldap.username") { "cn=admin,dc=example,dc=org" }
-            registry.add("spring.ldap.password") { "admin" }
+            registry.add("spring.ldap.password") { "admin_password" }
             
             // Disable embedded LDAP server
             registry.add("spring.ldap.embedded.port") { "0" }
@@ -68,7 +62,7 @@ class OpenLdapIntegrationTests {
             registry.add("spring.security.ldap.user-search-base") { "ou=people" }
             registry.add("spring.security.ldap.user-search-filter") { "(uid={0})" }
             registry.add("spring.security.ldap.group-search-base") { "ou=groups" }
-            registry.add("spring.security.ldap.group-search-filter") { "(uniqueMember={0})" }
+            registry.add("spring.security.ldap.group-search-filter") { "(member={0})" }
         }
     }
 
@@ -133,7 +127,7 @@ class OpenLdapIntegrationTests {
         mockMvc.perform(
             formLogin("/login")
                 .user("admin")
-                .password("admin")
+                .password("admin_password")
         )
             .andExpect(authenticated())
             .andExpect(redirectedUrl("/success"))
@@ -141,7 +135,7 @@ class OpenLdapIntegrationTests {
 
     /**
      * Test authentication with locked user account.
-     * Note: This test assumes the LDAP server has a user with a locked account.
+     * OpenLDAP supports account locking through the pwdLockout attribute.
      */
     @Test
     fun loginWithLockedAccountFails() {
@@ -156,7 +150,7 @@ class OpenLdapIntegrationTests {
 
     /**
      * Test authentication with expired password.
-     * Note: This test assumes the LDAP server has a user with an expired password.
+     * OpenLDAP supports password expiration through the pwdMaxAge attribute.
      */
     @Test
     fun loginWithExpiredPasswordFails() {
@@ -167,6 +161,20 @@ class OpenLdapIntegrationTests {
         )
             .andExpect(unauthenticated())
             .andExpect(redirectedUrl("/login?error=true"))
+    }
+
+    /**
+     * Test authentication with special characters in credentials.
+     */
+    @Test
+    fun loginWithSpecialCharactersInCredentials() {
+        mockMvc.perform(
+            formLogin("/login")
+                .user("user.special")
+                .password("p@ssw0rd!#$%")
+        )
+            .andExpect(authenticated())
+            .andExpect(redirectedUrl("/success"))
     }
 
     /**

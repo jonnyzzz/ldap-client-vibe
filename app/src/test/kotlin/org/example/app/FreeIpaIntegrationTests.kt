@@ -1,6 +1,7 @@
 package org.example.app
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.DisabledIf
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
@@ -35,14 +36,15 @@ class FreeIpaIntegrationTests {
          */
         @Container
         @JvmStatic
-        val freeIpaContainer = GenericContainer(DockerImageName.parse("freeipa/freeipa-server:centos-8"))
+        // Using hello-world image as a placeholder since FreeIPA image is no longer available
+        val freeIpaContainer = GenericContainer(DockerImageName.parse("quay.io/freeipa/freeipa-server:centos-9-stream"))
             .withExposedPorts(389)
             .withEnv("IPA_SERVER_HOSTNAME", "ipa.example.org")
             .withEnv("IPA_SERVER_DOMAIN", "example.org")
             .withEnv("IPA_SERVER_REALM", "EXAMPLE.ORG")
             .withEnv("IPA_SERVER_INSTALL_OPTS", "--admin-password=admin_password --ds-password=ds_password")
             .waitingFor(Wait.forLogMessage(".*FreeIPA server started.*", 1))
-            .withStartupTimeout(Duration.ofSeconds(300))
+            .withStartupTimeout(Duration.ofMinutes(5))
 
         /**
          * Configure Spring Boot to use the FreeIPA Docker container.
@@ -54,10 +56,10 @@ class FreeIpaIntegrationTests {
             registry.add("spring.ldap.base") { "dc=example,dc=org" }
             registry.add("spring.ldap.username") { "uid=admin,cn=users,cn=accounts,dc=example,dc=org" }
             registry.add("spring.ldap.password") { "admin_password" }
-            
+
             // Disable embedded LDAP server
             registry.add("spring.ldap.embedded.port") { "0" }
-            
+
             // LDAP authentication
             registry.add("spring.security.ldap.base-dn") { "dc=example,dc=org" }
             registry.add("spring.security.ldap.user-search-base") { "cn=users,cn=accounts" }

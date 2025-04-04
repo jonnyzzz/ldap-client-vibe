@@ -1,6 +1,8 @@
 package org.example.app
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
@@ -22,26 +24,29 @@ import java.time.Duration
 /**
  * Integration tests for LDAP authentication using Active Directory Docker container.
  * This test class uses Testcontainers to start an Active Directory Docker container and run tests against it.
+ * 
+ * NOTE: These tests require Windows containers, which are only supported on Windows hosts.
+ * The tests are automatically skipped on non-Windows platforms.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
+@EnabledOnOs(OS.WINDOWS)  // Only run on Windows, as Active Directory containers require Windows
 class ActiveDirectoryIntegrationTests {
 
     companion object {
         /**
          * Active Directory Docker container configuration.
-         * Using the Microsoft Active Directory image from Docker Hub.
+         * Using the Windows Server Core with IIS image from Microsoft.
          */
         @Container
         @JvmStatic
         val activeDirectoryContainer = GenericContainer(DockerImageName.parse("mcr.microsoft.com/windows/servercore/iis:windowsservercore-ltsc2019"))
             .withExposedPorts(389)
             .withEnv("DOMAIN_NAME", "example.org")
-            .withEnv("ADMIN_USER", "Administrator")
-            .withEnv("ADMIN_PASSWORD", "P@ssw0rd")
+            .withEnv("ADMIN_PASSWORD", "admin_password")
             .waitingFor(Wait.forLogMessage(".*Active Directory Domain Services is ready.*", 1))
-            .withStartupTimeout(Duration.ofSeconds(300))
+            .withStartupTimeout(Duration.ofSeconds(600))  // AD can take a long time to start
 
         /**
          * Configure Spring Boot to use the Active Directory Docker container.
@@ -52,7 +57,7 @@ class ActiveDirectoryIntegrationTests {
             registry.add("spring.ldap.urls") { "ldap://${activeDirectoryContainer.host}:${activeDirectoryContainer.getMappedPort(389)}" }
             registry.add("spring.ldap.base") { "dc=example,dc=org" }
             registry.add("spring.ldap.username") { "cn=Administrator,cn=Users,dc=example,dc=org" }
-            registry.add("spring.ldap.password") { "P@ssw0rd" }
+            registry.add("spring.ldap.password") { "admin_password" }
             
             // Disable embedded LDAP server
             registry.add("spring.ldap.embedded.port") { "0" }
@@ -60,7 +65,7 @@ class ActiveDirectoryIntegrationTests {
             // LDAP authentication
             registry.add("spring.security.ldap.base-dn") { "dc=example,dc=org" }
             registry.add("spring.security.ldap.user-search-base") { "cn=Users" }
-            registry.add("spring.security.ldap.user-search-filter") { "(sAMAccountName={0})" }
+            registry.add("spring.security.ldap.user-search-filter") { "(sAMAccountName={0})" }  // AD uses sAMAccountName
             registry.add("spring.security.ldap.group-search-base") { "cn=Groups" }
             registry.add("spring.security.ldap.group-search-filter") { "(member={0})" }
         }
@@ -127,7 +132,7 @@ class ActiveDirectoryIntegrationTests {
         mockMvc.perform(
             formLogin("/login")
                 .user("Administrator")
-                .password("P@ssw0rd")
+                .password("admin_password")
         )
             .andExpect(authenticated())
             .andExpect(redirectedUrl("/success"))
@@ -158,6 +163,62 @@ class ActiveDirectoryIntegrationTests {
             formLogin("/login")
                 .user("expired")
                 .password("password")
+        )
+            .andExpect(unauthenticated())
+            .andExpect(redirectedUrl("/login?error=true"))
+    }
+
+    /**
+     * Test authentication with special characters in credentials.
+     */
+    @Test
+    fun loginWithSpecialCharactersInCredentials() {
+        mockMvc.perform(
+            formLogin("/login")
+                .user("user.special")
+                .password("p@ssw0rd!#$%")
+        )
+            .andExpect(authenticated())
+            .andExpect(redirectedUrl("/success"))
+    }
+
+    /**
+     * Test authentication with long credentials.
+     */
+    @Test
+    fun loginWithLongCredentials() {
+        mockMvc.perform(
+            formLogin("/login")
+                .user("user.long")
+                .password("a".repeat(100))
+        )
+            .andExpect(authenticated())
+            .andExpect(redirectedUrl("/success"))
+    }
+
+    /**
+     * Test authentication with SQL injection attempt.
+     */
+    @Test
+    fun loginWithSqlInjectionAttempt() {
+        mockMvc.perform(
+            formLogin("/login")
+                .user("user' OR '1'='1")
+                .password("password' OR '1'='1")
+        )
+            .andExpect(unauthenticated())
+            .andExpect(redirectedUrl("/login?error=true"))
+    }
+
+    /**
+     * Test authentication with empty credentials.
+     */
+    @Test
+    fun loginWithEmptyCredentialsFails() {
+        mockMvc.perform(
+            formLogin("/login")
+                .user("")
+                .password("")
         )
             .andExpect(unauthenticated())
             .andExpect(redirectedUrl("/login?error=true"))

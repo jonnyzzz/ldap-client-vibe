@@ -31,7 +31,7 @@ class ApacheDsIntegrationTests {
     companion object {
         /**
          * ApacheDS Docker container configuration.
-         * Using the Apache Directory Server image from Docker Hub.
+         * Using the ApacheDS image from Docker Hub.
          */
         @Container
         @JvmStatic
@@ -39,8 +39,8 @@ class ApacheDsIntegrationTests {
             .withExposedPorts(10389)
             .withEnv("APACHEDS_INSTANCE", "default")
             .withEnv("APACHEDS_PARTITION", "example")
-            .withEnv("APACHEDS_ADMIN_PASSWORD", "admin")
-            .waitingFor(Wait.forLogMessage(".*ApacheDS is started.*", 1))
+            .withEnv("APACHEDS_ADMIN_PASSWORD", "admin_password")
+            .waitingFor(Wait.forLogMessage(".*ApacheDS has started.*", 1))
             .withStartupTimeout(Duration.ofSeconds(120))
 
         /**
@@ -52,17 +52,17 @@ class ApacheDsIntegrationTests {
             registry.add("spring.ldap.urls") { "ldap://${apacheDsContainer.host}:${apacheDsContainer.getMappedPort(10389)}" }
             registry.add("spring.ldap.base") { "dc=example,dc=org" }
             registry.add("spring.ldap.username") { "uid=admin,ou=system" }
-            registry.add("spring.ldap.password") { "admin" }
+            registry.add("spring.ldap.password") { "admin_password" }
             
             // Disable embedded LDAP server
             registry.add("spring.ldap.embedded.port") { "0" }
             
             // LDAP authentication
             registry.add("spring.security.ldap.base-dn") { "dc=example,dc=org" }
-            registry.add("spring.security.ldap.user-search-base") { "ou=people" }
+            registry.add("spring.security.ldap.user-search-base") { "ou=users" }
             registry.add("spring.security.ldap.user-search-filter") { "(uid={0})" }
             registry.add("spring.security.ldap.group-search-base") { "ou=groups" }
-            registry.add("spring.security.ldap.group-search-filter") { "(uniqueMember={0})" }
+            registry.add("spring.security.ldap.group-search-filter") { "(member={0})" }
         }
     }
 
@@ -127,7 +127,7 @@ class ApacheDsIntegrationTests {
         mockMvc.perform(
             formLogin("/login")
                 .user("admin")
-                .password("admin")
+                .password("admin_password")
         )
             .andExpect(authenticated())
             .andExpect(redirectedUrl("/success"))
@@ -161,6 +161,34 @@ class ApacheDsIntegrationTests {
         )
             .andExpect(unauthenticated())
             .andExpect(redirectedUrl("/login?error=true"))
+    }
+
+    /**
+     * Test authentication with special characters in credentials.
+     */
+    @Test
+    fun loginWithSpecialCharactersInCredentials() {
+        mockMvc.perform(
+            formLogin("/login")
+                .user("user.special")
+                .password("p@ssw0rd!#$%")
+        )
+            .andExpect(authenticated())
+            .andExpect(redirectedUrl("/success"))
+    }
+
+    /**
+     * Test authentication with long credentials.
+     */
+    @Test
+    fun loginWithLongCredentials() {
+        mockMvc.perform(
+            formLogin("/login")
+                .user("user.long")
+                .password("a".repeat(100))
+        )
+            .andExpect(authenticated())
+            .andExpect(redirectedUrl("/success"))
     }
 
     /**

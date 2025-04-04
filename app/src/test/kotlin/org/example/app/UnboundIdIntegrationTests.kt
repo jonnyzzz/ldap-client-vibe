@@ -20,38 +20,43 @@ import org.testcontainers.utility.DockerImageName
 import java.time.Duration
 
 /**
- * Integration tests for LDAP authentication using 389 Directory Server Docker container.
- * This test class uses Testcontainers to start a 389 Directory Server Docker container and run tests against it.
+ * Integration tests for LDAP authentication using UnboundID (PingDirectory) Docker container.
+ * This test class uses Testcontainers to start a PingDirectory Docker container and run tests against it.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
-class Directory389IntegrationTests {
+class UnboundIdIntegrationTests {
 
     companion object {
         /**
-         * 389 Directory Server Docker container configuration.
-         * Using the 389 Directory Server image from Docker Hub.
+         * UnboundID (PingDirectory) Docker container configuration.
+         * Using the PingDirectory image from Docker Hub.
          */
         @Container
         @JvmStatic
-        val directory389Container = GenericContainer(DockerImageName.parse("389ds/dirsrv:2.4"))
-            .withExposedPorts(3389)
-            .withEnv("DS_DM_PASSWORD", "admin_password")
-            .withEnv("DS_SUFFIX_NAME", "example")
-            .withEnv("DS_SUFFIX", "dc=example,dc=org")
-            .waitingFor(Wait.forLogMessage(".*389-Directory Server started.*", 1))
-            .withStartupTimeout(Duration.ofSeconds(180))
+        val pingDirectoryContainer = GenericContainer(DockerImageName.parse("pingidentity/pingdirectory:latest"))
+            .withExposedPorts(1389)
+            .withEnv("PING_IDENTITY_ACCEPT_EULA", "YES")
+            .withEnv("PING_IDENTITY_DEVOPS_USER", "user")
+            .withEnv("PING_IDENTITY_DEVOPS_KEY", "key")
+            .withEnv("PING_IDENTITY_PASSWORD", "admin_password")
+            .withEnv("ROOT_USER_DN", "cn=administrator")
+            .withEnv("ROOT_USER_PASSWORD", "admin_password")
+            .withEnv("PING_IDENTITY_DEVOPS_REGISTRY", "docker.io/pingidentity")
+            .withEnv("PING_IDENTITY_DEVOPS_TAG", "latest")
+            .waitingFor(Wait.forLogMessage(".*PingDirectory has started.*", 1))
+            .withStartupTimeout(Duration.ofSeconds(300))
 
         /**
-         * Configure Spring Boot to use the 389 Directory Server Docker container.
+         * Configure Spring Boot to use the UnboundID (PingDirectory) Docker container.
          */
         @JvmStatic
         @DynamicPropertySource
         fun configureProperties(registry: DynamicPropertyRegistry) {
-            registry.add("spring.ldap.urls") { "ldap://${directory389Container.host}:${directory389Container.getMappedPort(3389)}" }
+            registry.add("spring.ldap.urls") { "ldap://${pingDirectoryContainer.host}:${pingDirectoryContainer.getMappedPort(1389)}" }
             registry.add("spring.ldap.base") { "dc=example,dc=org" }
-            registry.add("spring.ldap.username") { "cn=Directory Manager" }
+            registry.add("spring.ldap.username") { "cn=administrator" }
             registry.add("spring.ldap.password") { "admin_password" }
             
             // Disable embedded LDAP server
@@ -70,7 +75,7 @@ class Directory389IntegrationTests {
     private lateinit var mockMvc: MockMvc
 
     /**
-     * Test that the application context loads successfully with the 389 Directory Server container.
+     * Test that the application context loads successfully with the UnboundID container.
      */
     @Test
     fun contextLoads() {
@@ -135,7 +140,7 @@ class Directory389IntegrationTests {
 
     /**
      * Test authentication with locked user account.
-     * 389 Directory Server supports account locking through the nsAccountLock attribute.
+     * UnboundID supports account locking through the ds-pwp-account-disabled attribute.
      */
     @Test
     fun loginWithLockedAccountFails() {
@@ -150,7 +155,7 @@ class Directory389IntegrationTests {
 
     /**
      * Test authentication with expired password.
-     * 389 Directory Server supports password expiration through the passwordExpirationTime attribute.
+     * UnboundID supports password expiration through the ds-pwp-password-expiration-time attribute.
      */
     @Test
     fun loginWithExpiredPasswordFails() {
@@ -200,6 +205,20 @@ class Directory389IntegrationTests {
             formLogin("/login")
                 .user("user' OR '1'='1")
                 .password("password' OR '1'='1")
+        )
+            .andExpect(unauthenticated())
+            .andExpect(redirectedUrl("/login?error=true"))
+    }
+
+    /**
+     * Test authentication with empty credentials.
+     */
+    @Test
+    fun loginWithEmptyCredentialsFails() {
+        mockMvc.perform(
+            formLogin("/login")
+                .user("")
+                .password("")
         )
             .andExpect(unauthenticated())
             .andExpect(redirectedUrl("/login?error=true"))
